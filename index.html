@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Clock Pro App</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    background:#0f0f0f;
+    color:#00ffcc;
+    text-align:center;
+    transition:0.3s;
+}
+
+.container{padding:20px;}
+
+.clock{
+    font-size:50px;
+    border:2px solid #00ffcc;
+    display:inline-block;
+    padding:10px 20px;
+    border-radius:10px;
+    margin-top:10px;
+}
+
+.section{
+    margin-top:20px;
+    padding:15px;
+    border:1px solid #00ffcc;
+    border-radius:10px;
+}
+
+button{
+    margin:5px;
+    padding:8px 12px;
+    cursor:pointer;
+    border:none;
+    border-radius:5px;
+}
+
+/* Analog */
+.analog{
+    width:140px;
+    height:140px;
+    border-radius:50%;
+    border:3px solid #00ffcc;
+    margin:10px auto;
+    position:relative;
+}
+
+.hand{
+    position:absolute;
+    bottom:50%;
+    left:50%;
+    transform-origin:bottom;
+    transform:translateX(-50%);
+}
+
+.hr{width:4px;height:35px;background:#00ffcc;}
+.mn{width:3px;height:45px;background:#00ffcc;}
+.sc{width:2px;height:55px;background:red;}
+
+/* Light mode */
+.light{
+    background:white;
+    color:black;
+}
+.light .clock,
+.light .analog,
+.light .section{
+    border-color:black;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>🕒 CLOCK PRO APP</h2>
+
+<div class="clock" id="clock">00:00:00</div>
+<div id="date"></div>
+
+<div class="analog">
+    <div class="hand hr" id="hr"></div>
+    <div class="hand mn" id="mn"></div>
+    <div class="hand sc" id="sc"></div>
+</div>
+
+<button onclick="toggleMode()">Dark/Light</button>
+
+<!-- TIMER -->
+<div class="section">
+<h3>⏳ Timer</h3>
+<input id="tmin" type="number" placeholder="Min">
+<input id="tsec" type="number" placeholder="Sec">
+<button onclick="startTimer()">Start</button>
+</div>
+
+<!-- STOPWATCH -->
+<div class="section">
+<h3>⏱ Stopwatch</h3>
+<div id="sw">00:00</div>
+<button onclick="startSW()">Start</button>
+<button onclick="stopSW()">Stop</button>
+<button onclick="resetSW()">Reset</button>
+</div>
+
+<!-- ALARM -->
+<div class="section">
+<h3>⏰ Alarm (HH:MM)</h3>
+<input id="alarmInput" placeholder="e.g. 14:30">
+<button onclick="addAlarm()">Add</button>
+<ul id="alarmList"></ul>
+</div>
+
+</div>
+
+<script>
+
+let alarms = JSON.parse(localStorage.getItem("alarms")) || [];
+
+// CLOCK
+function updateClock(){
+    let now = new Date();
+
+    let h = now.getHours();
+    let m = now.getMinutes();
+    let s = now.getSeconds();
+
+    document.getElementById("clock").innerText =
+    `${pad(h)}:${pad(m)}:${pad(s)}`;
+
+    document.getElementById("date").innerText =
+    now.toDateString();
+
+    // analog
+    document.getElementById("hr").style.transform =
+    `rotate(${(h%12)*30 + m/2}deg)`;
+
+    document.getElementById("mn").style.transform =
+    `rotate(${m*6}deg)`;
+
+    document.getElementById("sc").style.transform =
+    `rotate(${s*6}deg)`;
+
+    // alarm check
+    let current = `${pad(h)}:${pad(m)}`;
+    if(alarms.includes(current)){
+        beep();
+        alert("⏰ Alarm!");
+        alarms = alarms.filter(a => a !== current);
+        saveAlarms();
+        renderAlarms();
+    }
+}
+setInterval(updateClock,1000);
+updateClock();
+
+function pad(n){return n<10?"0"+n:n;}
+
+// DARK MODE
+function toggleMode(){
+    document.body.classList.toggle("light");
+}
+
+// ALARM
+function addAlarm(){
+    let val = document.getElementById("alarmInput").value;
+    if(val){
+        alarms.push(val);
+        saveAlarms();
+        renderAlarms();
+    }
+}
+
+function saveAlarms(){
+    localStorage.setItem("alarms",JSON.stringify(alarms));
+}
+
+function renderAlarms(){
+    let list = document.getElementById("alarmList");
+    list.innerHTML = "";
+    alarms.forEach((a,i)=>{
+        let li = document.createElement("li");
+        li.innerHTML = `${a} <button onclick="del(${i})">X</button>`;
+        list.appendChild(li);
+    });
+}
+
+function del(i){
+    alarms.splice(i,1);
+    saveAlarms();
+    renderAlarms();
+}
+renderAlarms();
+
+// BEEP
+function beep(){
+    let ctx = new AudioContext();
+    let osc = ctx.createOscillator();
+    osc.frequency.value = 700;
+    osc.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime+1);
+}
+
+// TIMER
+let timer;
+function startTimer(){
+    let m = +document.getElementById("tmin").value || 0;
+    let s = +document.getElementById("tsec").value || 0;
+    let total = m*60 + s;
+
+    clearInterval(timer);
+
+    timer = setInterval(()=>{
+        if(total<=0){
+            clearInterval(timer);
+            beep();
+            alert("⏳ Time Up!");
+        } else {
+            total--;
+            document.getElementById("clock").innerText =
+            `${pad(Math.floor(total/60))}:${pad(total%60)}`;
+        }
+    },1000);
+}
+
+// STOPWATCH
+let sw,sec=0;
+
+function startSW(){
+    clearInterval(sw);
+    sw=setInterval(()=>{
+        sec++;
+        document.getElementById("sw").innerText=
+        `${pad(Math.floor(sec/60))}:${pad(sec%60)}`;
+    },1000);
+}
+
+function stopSW(){clearInterval(sw);}
+function resetSW(){
+    sec=0;
+    document.getElementById("sw").innerText="00:00";
+}
+
+</script>
+
+</body>
+</html>
